@@ -29,7 +29,7 @@ credentials.json
 *.csv
 *.xlsx
 *.parquet
-data/
+/data/
 datasets/
 
 # Outputs
