@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE - PyCharm
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+*.key
+config.ini
+credentials.json
+.junie/
+
+# Data files
+*.csv
+*.xlsx
+*.parquet
+data/
+datasets/
+
+# Outputs
+outputs/
+results/
+logs/
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Project Data
+*.h5
+/historical_data/
+/backtest_reports/
+/trade_logs/

@@ -1,0 +1,18 @@
+# === Data Processing & Math ===
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# === Market Data Acquisition ===
+yfinance>=0.2.0
+requests>=2.31.0
+
+# === Backtesting & Performance ===
+vectorbt>=0.24.0
+numba>=0.57.0
+
+# === AI & Semantic Analysis (Macro Core) ===
+google-generativeai>=0.3.0
+
+# === Environment & Security ===
+python-dotenv>=1.0.0
