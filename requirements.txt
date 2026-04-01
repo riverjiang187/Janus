@@ -6,6 +6,7 @@ scipy>=1.10.0
 # === Market Data Acquisition ===
 yfinance>=0.2.0
 requests>=2.31.0
+curl_cffi>=0.6.0
 
 # === Backtesting & Performance ===
 vectorbt>=0.24.0

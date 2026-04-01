@@ -65,7 +65,8 @@ def robust_z_score(series: pd.Series) -> pd.Series:
         return (series - median) * 0
     return (series - median) / mad
 
-from src.data.data_ingestion import calculate_log_returns, calculate_ma_distance
+from src.engines.left_brain.data_ingestion import calculate_log_returns, calculate_ma_distance
+from src.engines.left_brain.scoring import calculate_tech_score
 
 def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -92,6 +93,8 @@ def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     df['BB_Z'] = robust_z_score(df['BB_Percent'])
     df['Log_Return_Z'] = robust_z_score(df['Log_Return'])
     df['MA_Dist_Z'] = robust_z_score(df['Distance_from_MA_20'])
+    # 1.3 阶段的打分
+    df['Tech_Score'] = calculate_tech_score(df)
     
     return df
 
@@ -102,9 +105,11 @@ def check_trend_consistency(daily_df: pd.DataFrame) -> pd.Series:
     2. 计算周线趋势 (e.g., Weekly Close > Weekly MA20)。
     3. 将周线趋势广播回日线频率。
     """
-    # 确保索引是 DatetimeIndex
+    # 确保索引是 DatetimeIndex 且处理时区
     if not isinstance(daily_df.index, pd.DatetimeIndex):
-        daily_df.index = pd.to_datetime(daily_df.index)
+        daily_df.index = pd.to_datetime(daily_df.index, utc=True)
+    elif daily_df.index.tz is not None:
+        daily_df.index = daily_df.index.tz_convert('UTC')
 
     # 1. 日线趋势
     daily_ma = daily_df['Close'].rolling(window=20).mean()
@@ -132,7 +137,7 @@ def check_trend_consistency(daily_df: pd.DataFrame) -> pd.Series:
     return consistency
 
 if __name__ == "__main__":
-    from src.data.data_ingestion import fetch_data, handle_missing_and_inf
+    from src.engines.left_brain.data_ingestion import fetch_data, handle_missing_and_inf
     
     symbol = "AAPL"
     df = fetch_data(symbol, start="2022-01-01", end="2023-12-31")
@@ -146,5 +151,5 @@ if __name__ == "__main__":
         df['Trend_Consistency'] = check_trend_consistency(df)
         
         print("\n--- Final Output ---")
-        print(df[['Close', 'RSI_Z', 'MACD_Z', 'BB_Z', 'Trend_Consistency']].tail())
-        logging.info("1.2 稳健特征工程 (Robust Feature Engineering) 验证成功。")
+        print(df[['Close', 'RSI_Z', 'MACD_Z', 'BB_Z', 'Tech_Score', 'Trend_Consistency']].tail())
+        logging.info("1.3 评分合成 (Scoring) 验证成功。")

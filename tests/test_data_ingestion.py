@@ -7,7 +7,7 @@ import os
 # 将 src 添加到路径中以便导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.data.data_ingestion import (
+from src.engines.left_brain.data_ingestion import (
     fetch_data, 
     calculate_log_returns, 
     calculate_ma_distance, 

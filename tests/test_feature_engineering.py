@@ -7,7 +7,7 @@ import os
 # 将 src 添加到路径中以便导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.features.feature_engineering import (
+from src.engines.left_brain.feature_engineering import (
     calculate_rsi,
     calculate_macd,
     calculate_bollinger_bands,

@@ -4,13 +4,15 @@ import numpy as np
 import logging
 import time
 import os
+import requests
+import random
 from pathlib import Path
 
 # 设置日志格式
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 自动获取项目根目录
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
 def get_data_path(symbol: str, interval: str, start: str, end: str) -> Path:
@@ -22,10 +24,18 @@ def get_data_path(symbol: str, interval: str, start: str, end: str) -> Path:
     filename = f"{symbol}_{interval}_{s}_{e}.csv"
     return DATA_DIR / filename
 
-def fetch_data(symbol: str, start: str = None, end: str = None, interval: str = '1d', retries: int = 3) -> pd.DataFrame:
+def fetch_data(symbol: str, start: str = None, end: str = None, interval: str = '1d', retries: int = 5, proxy: str = None) -> pd.DataFrame:
     """
     获取 OHLCV 数据。
     逻辑：先检查本地缓存，若无则从 yfinance 下载（带指数退避重试），若失败则返回模拟数据。
+    
+    Args:
+        symbol: 股票代码
+        start: 开始日期 (YYYY-MM-DD)
+        end: 结束日期 (YYYY-MM-DD)
+        interval: 时间间隔 (1d, 1wk, 1mo 等)
+        retries: 最大重试次数
+        proxy: HTTP/HTTPS 代理 (e.g. "http://127.0.0.1:7890")
     """
     # 1. 检查本地缓存
     file_path = get_data_path(symbol, interval, start, end)
@@ -34,7 +44,7 @@ def fetch_data(symbol: str, start: str = None, end: str = None, interval: str = 
         try:
             data = pd.read_csv(file_path, index_col=0, parse_dates=True)
             if not data.empty:
-                # 确保 yfinance 2.x 的列名兼容性（如果缓存是从旧版存的）
+                # 确保 yfinance 2.x 的列名兼容性
                 if isinstance(data.columns, pd.MultiIndex):
                     data.columns = data.columns.get_level_values(0)
                 return data
@@ -43,24 +53,59 @@ def fetch_data(symbol: str, start: str = None, end: str = None, interval: str = 
 
     # 2. 从 yfinance 下载
     logging.info(f"正在从 yfinance 下载 {symbol} 数据，范围：{start} 到 {end}，周期：{interval}")
+    
     for i in range(retries):
         try:
-            data = yf.download(symbol, start=start, end=end, interval=interval, progress=False)
+            # yfinance 2.x+ 建议不要手动设置 session，它内部会自动处理并规避检测
+            # 如果依然下载失败，通常是由于被 IP 限制。
+            # 这里我们通过随机等待来增加一点隐蔽性
+            if i > 0:
+                jitter_wait = random.uniform(1, 5)
+                logging.info(f"下载尝试 {i+1}，先随机等待 {jitter_wait:.2f} 秒...")
+                time.sleep(jitter_wait)
+
+            # 尝试主要下载方式
+            # 注意：yf.download 2.x 建议通过随机等待和增加重试来提高成功率。
+            download_kwargs = {
+                "start": start,
+                "end": end,
+                "interval": interval,
+                "progress": False
+            }
+            # 只有当 proxy 不为 None 时才加入参数
+            if proxy:
+                download_kwargs["proxy"] = proxy
+
+            data = yf.download(symbol, **download_kwargs)
+            
+            # 如果主要下载方式失败，尝试备选下载方式 (yf.Ticker.history)
+            if data.empty:
+                logging.warning(f"yf.download 返回为空，尝试使用 Ticker.history 备选方案...")
+                ticker = yf.Ticker(symbol)
+                history_kwargs = {
+                    "start": start,
+                    "end": end,
+                    "interval": interval
+                }
+                if proxy:
+                    history_kwargs["proxy"] = proxy
+                data = ticker.history(**history_kwargs)
+
             if not data.empty:
                 # 修复 yfinance 2.x 可能出现的 MultiIndex 列名问题
                 if isinstance(data.columns, pd.MultiIndex):
-                    # 如果只有单列（如只有一个 symbol），yfinance 也会返回 MultiIndex
-                    # 我们取第一层索引，即 OHLCV 名称
                     data.columns = [col[0] if isinstance(col, tuple) else col for col in data.columns]
                 
-                # 标准列名映射，确保即便 yfinance 返回小写或 MultiIndex 也能统一
+                # 标准列名映射
                 mapping = {
                     'open': 'Open',
                     'high': 'High',
                     'low': 'Low',
                     'close': 'Close',
                     'volume': 'Volume',
-                    'adj close': 'Adj Close'
+                    'adj close': 'Adj Close',
+                    'dividends': 'Dividends',
+                    'stock splits': 'Stock Splits'
                 }
                 data.columns = [mapping.get(str(c).lower(), c) for c in data.columns]
                 
@@ -71,11 +116,13 @@ def fetch_data(symbol: str, start: str = None, end: str = None, interval: str = 
                 logging.warning(f"下载的 {symbol} 数据为空（尝试 {i+1}/{retries}）。")
         except Exception as e:
             logging.error(f"下载数据时出错 (尝试 {i+1}/{retries}): {e}")
+            if "Rate Limit" in str(e) or "Unauthorized" in str(e):
+                logging.warning("提示：Yahoo 可能已对您的 IP 进行限流或封禁，建议更换网络或设置代理。")
         
         if i < retries - 1:
-            # 指数退避 (Exponential Backoff): 2s, 4s, 8s...
-            wait_time = 2 ** (i + 1)
-            logging.info(f"等待 {wait_time} 秒后重试...")
+            # 指数退避 + 随机抖动 (Jitter)
+            wait_time = (2 ** (i + 1)) + random.uniform(1, 3)
+            logging.info(f"等待 {wait_time:.2f} 秒后重试...")
             time.sleep(wait_time)
             
     # 3. 容错处理：生成模拟数据
@@ -175,8 +222,7 @@ if __name__ == "__main__":
     
     df = fetch_data(symbol, start=start_date, end=end_date)
     if not df.empty:
-        # 保存原始下载的数据
-        save_data(df, symbol, '1d', start_date, end_date)
+        # fetch_data 内部会自动调用 save_data，此处无需重复调用
         
         df = calculate_log_returns(df)
         df = calculate_ma_distance(df, window=20)
