@@ -44,7 +44,7 @@ class SentimentAnalyzer:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
-            self.model_id = 'gemini-2.0-flash'
+            self.model_id = 'gemini-2.5-flash'
         else:
             logger.warning("GEMINI_API_KEY not found. API calls will fail.")
             self.client = None
