@@ -35,12 +35,12 @@ class SentimentAnalyzer:
     
     Hallucination Defense:
     - If the news content is vague, ambiguous, or if you cannot determine the sentiment for either track, you MUST output 0.0 for that specific sentiment.
-    - Do not guess or invent information.
+    - Do NOT guess or invent information.
 
     Output Format:
     - You MUST respond ONLY in JSON format.
     - Example: {{"macro_sentiment": 0.1, "macro_relevance": 0.8, "asset_sentiment": 0.4, "asset_relevance": 0.6}}
-    - No additional text, explanations, or code blocks.
+    - NO additional text, explanations, or code blocks.
     """
 
     def __init__(self, api_key: Optional[str] = None):
