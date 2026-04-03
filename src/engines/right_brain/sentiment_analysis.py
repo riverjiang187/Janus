@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
