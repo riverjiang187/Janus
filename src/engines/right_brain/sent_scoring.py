@@ -70,6 +70,9 @@ class SentimentProcessor:
         # Aggregate if there are multiple entries for the same date
         daily_avg = df.groupby(date_col)[score_col].mean().reset_index()
         
+        if daily_avg.empty:
+            return pd.DataFrame()
+            
         # Create full date range
         min_date = daily_avg[date_col].min()
         max_date = daily_avg[date_col].max()
@@ -90,6 +93,41 @@ class SentimentProcessor:
         full_df['decayed_score'] = decayed_scores
         
         return full_df
+
+from typing import Optional, Union
+
+def get_sent_score(df: pd.DataFrame, target_date: str = None) -> Union[pd.Series, float]:
+    """
+    Project Janus Phase 2 Facade: Unified Sentiment Scoring Interface.
+    Includes T+1 delay and decay logic.
+    
+    Args:
+        df: DataFrame containing 'date' and 'score'.
+        target_date: Specific date for point-in-time score (YYYY-MM-DD). If None, returns full Series.
+        
+    Returns:
+        Union[pd.Series, float]: Full time-series (decayed) or a single score for target_date.
+    """
+    processor = SentimentProcessor()
+    full_df = processor.process_sentiment_series(df)
+    
+    if full_df.empty:
+        return pd.Series() if target_date is None else 0.0
+        
+    # Re-index to use date for easier access
+    full_df = full_df.set_index('date')
+    scores = full_df['decayed_score']
+    
+    if target_date is not None:
+        target_dt = pd.to_datetime(target_date).normalize()
+        if target_dt in scores.index:
+            return float(scores.loc[target_dt])
+        else:
+            # If target date is beyond the range, we might need to extend decay
+            # But for simplicity, we return 0.0 or the last decayed value if it's within reason
+            return 0.0
+            
+    return scores
 
 if __name__ == "__main__":
     # Quick example test

@@ -1,5 +1,5 @@
 import pandas as pd
-import numpy as np
+import re
 from typing import List, Dict
 
 class NewsFilter:
@@ -35,7 +35,7 @@ class NewsFilter:
             # If no text columns found, we can't filter, return empty to be safe
             return pd.DataFrame(columns=news_df.columns)
             
-        pattern = '|'.join(self.keywords)
+        pattern = '|'.join(re.escape(k) for k in self.keywords)
         
         # Search across all existing text columns
         # We use a helper series that combines all available text

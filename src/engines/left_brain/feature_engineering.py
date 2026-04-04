@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import logging
 from scipy.stats import median_abs_deviation
+from src.engines.left_brain.data_ingestion import calculate_log_returns, calculate_ma_distance
+from src.engines.left_brain.tech_scoring import calculate_tech_score
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -36,7 +38,8 @@ def calculate_bollinger_bands(df: pd.DataFrame, window: int = 20, num_std: int =
     std = df['Close'].rolling(window=window).std()
     upper_band = ma + (std * num_std)
     lower_band = ma - (std * num_std)
-    percent_b = (df['Close'] - lower_band) / (upper_band - lower_band)
+    # 增加极小值保护，防止除以零
+    percent_b = (df['Close'] - lower_band) / (upper_band - lower_band).replace(0, np.nan)
     return percent_b
 
 def calculate_atr(df: pd.DataFrame, window: int = 14) -> pd.Series:
@@ -64,9 +67,6 @@ def robust_z_score(series: pd.Series) -> pd.Series:
     if mad == 0:
         return (series - median) * 0
     return (series - median) / mad
-
-from src.engines.left_brain.data_ingestion import calculate_log_returns, calculate_ma_distance
-from src.engines.left_brain.scoring import calculate_tech_score
 
 def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     """

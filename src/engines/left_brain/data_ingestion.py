@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import logging
 import time
-import os
-import requests
 import random
 from pathlib import Path
 
@@ -181,9 +179,11 @@ def calculate_log_returns(df: pd.DataFrame, column: str = 'Close') -> pd.DataFra
     # 确保没有零或负数以防 log 报错
     values = df[column]
     if (values <= 0).any():
-        logging.warning(f"列 {column} 中包含零或负值，计算 Log_Return 可能会产生 NaN/Inf。")
+        logging.warning(f"列 {column} 中包含零或负值，计算 Log_Return 前将其替换为 NaN。")
+        # 将非正值替换为 NaN，防止 log(-inf) 或 log(NaN)
+        values = values.where(values > 0, np.nan)
     
-    df['Log_Return'] = np.log(df[column] / df[column].shift(1))
+    df['Log_Return'] = np.log(values / values.shift(1))
     return df
 
 def calculate_ma_distance(df: pd.DataFrame, column: str = 'Close', window: int = 20) -> pd.DataFrame:
@@ -192,7 +192,8 @@ def calculate_ma_distance(df: pd.DataFrame, column: str = 'Close', window: int =
     """
     df = df.copy()
     ma = df[column].rolling(window=window).mean()
-    df[f'Distance_from_MA_{window}'] = (df[column] - ma) / ma
+    # 使用 .replace(0, np.nan) 防止均线 ma 为 0 时触发除以零错误
+    df[f'Distance_from_MA_{window}'] = (df[column] - ma) / ma.replace(0, np.nan)
     return df
 
 def handle_missing_and_inf(df: pd.DataFrame) -> pd.DataFrame:

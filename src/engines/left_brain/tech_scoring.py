@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import logging
+from typing import Dict, Optional, Union
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -66,6 +67,33 @@ def calculate_tech_score(df: pd.DataFrame, weights: dict = None) -> pd.Series:
     final_score = final_score.clip(lower=-1.0, upper=1.0)
     
     return final_score
+
+def get_tech_score(df: pd.DataFrame, target_date: str = None) -> Union[pd.Series, float]:
+    """
+    Project Janus Phase 1 Facade: Unified Technical Scoring Interface.
+    
+    Args:
+        df: DataFrame containing technical features and Z-Scores.
+        target_date: Specific date for point-in-time score (YYYY-MM-DD). If None, returns full Series.
+        
+    Returns:
+        Union[pd.Series, float]: Full time-series or a single score for target_date.
+    """
+    scores = calculate_tech_score(df)
+    
+    if target_date is not None:
+        # Ensure index is datetime for reliable slicing
+        if not isinstance(scores.index, pd.DatetimeIndex):
+            scores.index = pd.to_datetime(scores.index)
+        
+        target_dt = pd.to_datetime(target_date)
+        if target_dt in scores.index:
+            return float(scores.loc[target_dt])
+        else:
+            logging.warning(f"Target date {target_date} not found in technical scores index.")
+            return 0.0
+            
+    return scores
 
 if __name__ == "__main__":
     # 简单测试逻辑
